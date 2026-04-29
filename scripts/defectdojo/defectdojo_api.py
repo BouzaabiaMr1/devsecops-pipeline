@@ -53,7 +53,10 @@ def headers():
  
  
 def get(endpoint):
-    r = requests.get(f"{DOJO_URL}/api/v2{endpoint}", headers=headers(), timeout=30)
+    url = f"{DOJO_URL}/api/v2{endpoint}"
+    r = requests.get(url, headers=headers(), timeout=30)
+    print(f"[DEBUG] GET {url} -> HTTP {r.status_code}")
+    print(f"[DEBUG] Response body: {r.text[:500]}")
     r.raise_for_status()
     return r.json()
  
