@@ -1,5 +1,0 @@
-flask==2.3.3
-werkzeug==2.3.7
-requests==2.31.0
-# Known vulnerable version of Jinja2 (for demo purposes — scanner should catch this)
-jinja2==3.1.2

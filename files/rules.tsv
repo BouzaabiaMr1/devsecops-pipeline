@@ -1,9 +1,0 @@
-# ZAP Baseline Scan — Rule Configuration
-# Format: rule_id	IGNORE/WARN/FAIL	description
-#
-# Suppressed rules for the demo app (false positives or informational only)
-10015	IGNORE	Incomplete or No Cache-control Header Set
-10016	IGNORE	Web Browser XSS Protection Not Enabled
-10017	IGNORE	Cross-Domain JavaScript Source File Inclusion
-10096	IGNORE	Timestamp Disclosure
-90022	IGNORE	Application Error Disclosure (dev mode)
