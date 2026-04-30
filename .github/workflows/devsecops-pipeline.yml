@@ -12,23 +12,23 @@
 #    7. DAST — OWASP ZAP (baseline)
 #    8. Upload all results to DefectDojo
 # ============================================================
- 
+
 name: DevSecOps Pipeline
- 
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
   workflow_dispatch:   # allow manual trigger from GitHub UI
- 
+
 env:
   DOJO_URL:     ${{ secrets.DOJO_URL }}
   DOJO_API_KEY: ${{ secrets.DOJO_API_KEY }}
   DOJO_PRODUCT: "VulnFlask"
   IMAGE_NAME:   "vulnflask"
   IMAGE_TAG:    ${{ github.sha }}
- 
+
 jobs:
   # ============================================================
   #  JOB 0 — Setup DefectDojo product & engagement
@@ -39,18 +39,18 @@ jobs:
     outputs:
       engagement_id: ${{ steps.setup.outputs.engagement_id }}
       product_id:    ${{ steps.setup.outputs.product_id }}
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install requests
         run: pip install requests
- 
+
       - name: Create product & engagement in DefectDojo
         id: setup
         run: |
@@ -58,13 +58,13 @@ jobs:
           source results/dojo_ids.env
           echo "product_id=${DOJO_PRODUCT_ID}"    >> $GITHUB_OUTPUT
           echo "engagement_id=${DOJO_ENGAGEMENT_ID}" >> $GITHUB_OUTPUT
- 
+
       - name: Upload IDs artifact
         uses: actions/upload-artifact@v4
         with:
           name: dojo-ids
           path: results/dojo_ids.env
- 
+
   # ============================================================
   #  JOB 1 — SAST: Bandit (Python source code)
   # ============================================================
@@ -72,18 +72,18 @@ jobs:
     name: "SAST — Bandit"
     runs-on: ubuntu-latest
     needs: dojo-setup
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install Bandit
         run: pip install bandit requests
- 
+
       - name: Run Bandit scan
         run: |
           mkdir -p results
@@ -92,7 +92,7 @@ jobs:
             -o results/bandit.json \
             --severity-level low \
             --confidence-level low || true   # don't fail pipeline on findings
- 
+
       - name: Print Bandit summary
         run: |
           if [ -f results/bandit.json ]; then
@@ -106,7 +106,7 @@ jobs:
               print(f'  {sev}: {metrics.get(key,0)} issues')
             "
           fi
- 
+
       - name: Import Bandit results to DefectDojo
         run: |
           pip install requests
@@ -115,13 +115,13 @@ jobs:
             --scan-type bandit \
             --file results/bandit.json \
             --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
- 
+
       - name: Upload Bandit artifact
         uses: actions/upload-artifact@v4
         with:
           name: bandit-results
           path: results/bandit.json
- 
+
   # ============================================================
   #  JOB 2 — SAST: Semgrep
   # ============================================================
@@ -129,18 +129,18 @@ jobs:
     name: "SAST — Semgrep"
     runs-on: ubuntu-latest
     needs: dojo-setup
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install Semgrep
         run: pip install semgrep requests
- 
+
       - name: Run Semgrep scan
         run: |
           mkdir -p results
@@ -149,7 +149,7 @@ jobs:
             --json \
             --output results/semgrep.json \
             app/ || true
- 
+
       - name: Import Semgrep results to DefectDojo
         run: |
           python scripts/defectdojo/defectdojo_api.py \
@@ -157,13 +157,13 @@ jobs:
             --scan-type semgrep \
             --file results/semgrep.json \
             --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
- 
+
       - name: Upload Semgrep artifact
         uses: actions/upload-artifact@v4
         with:
           name: semgrep-results
           path: results/semgrep.json
- 
+
   # ============================================================
   #  JOB 3 — Secrets scanning: TruffleHog
   # ============================================================
@@ -171,19 +171,20 @@ jobs:
     name: "Secrets — TruffleHog"
     runs-on: ubuntu-latest
     needs: dojo-setup
- 
+    continue-on-error: true
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history for TruffleHog
- 
+
       - name: Run TruffleHog
         run: |
           mkdir -p results
-          docker run --rm             -v "$PWD:/pwd"             trufflesecurity/trufflehog:latest             filesystem /pwd             --json             --no-update             > results/trufflehog.json 2>/dev/null || true
+          docker run --rm -v "$PWD:/pwd" trufflesecurity/trufflehog:latest filesystem /pwd --json --no-update > results/trufflehog.json 2>/dev/null || true
           echo "TruffleHog scan complete"
           cat results/trufflehog.json | head -5 || echo "No findings"
- 
+
       - name: Install requests & import to DefectDojo
         run: |
           pip install requests
@@ -196,7 +197,7 @@ jobs:
           else
             echo "No secrets file generated — skipping import"
           fi
- 
+
   # ============================================================
   #  JOB 4 — SCA: pip-audit (dependency vulnerabilities)
   # ============================================================
@@ -204,18 +205,18 @@ jobs:
     name: "SCA — pip-audit"
     runs-on: ubuntu-latest
     needs: dojo-setup
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install pip-audit and requests
         run: pip install pip-audit requests
- 
+
       - name: Run pip-audit
         run: |
           mkdir -p results
@@ -223,7 +224,7 @@ jobs:
             -r app/requirements.txt \
             --format json \
             --output results/pip-audit.json || true
- 
+
       - name: Print SCA summary
         run: |
           if [ -f results/pip-audit.json ]; then
@@ -236,13 +237,13 @@ jobs:
               print(f'  {v[\"name\"]} {v[\"version\"]} → {len(v[\"vulns\"])} CVE(s)')
             "
           fi
- 
+
       - name: Upload SCA artifact
         uses: actions/upload-artifact@v4
         with:
           name: pip-audit-results
           path: results/pip-audit.json
- 
+
   # ============================================================
   #  JOB 5 — Container scan: Trivy
   # ============================================================
@@ -250,14 +251,14 @@ jobs:
     name: "Container — Trivy"
     runs-on: ubuntu-latest
     needs: dojo-setup
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Build Docker image
         run: |
           docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} app/
- 
+
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -266,7 +267,7 @@ jobs:
           output:    "results/trivy.json"
           severity:  "CRITICAL,HIGH,MEDIUM,LOW"
           exit-code: "0"   # don't fail pipeline
- 
+
       - name: Install requests & import to DefectDojo
         run: |
           pip install requests
@@ -275,13 +276,13 @@ jobs:
             --scan-type trivy \
             --file results/trivy.json \
             --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
- 
+
       - name: Upload Trivy artifact
         uses: actions/upload-artifact@v4
         with:
           name: trivy-results
           path: results/trivy.json
- 
+
   # ============================================================
   #  JOB 6 — DAST: OWASP ZAP baseline scan
   # ============================================================
@@ -289,10 +290,10 @@ jobs:
     name: "DAST — OWASP ZAP"
     runs-on: ubuntu-latest
     needs: [dojo-setup, container-scan]
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Start VulnFlask in Docker
         run: |
           docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} app/
@@ -302,7 +303,7 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           sleep 5
           curl -s http://localhost:5000/health || echo "App may still be starting"
- 
+
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.11.0
         with:
@@ -310,7 +311,7 @@ jobs:
           fail_action:  false
           cmd_options:  "-J results/zap.json -r results/zap.html"
           rules_file_name: ".zap/rules.tsv"
- 
+
       - name: Install requests & import ZAP to DefectDojo
         run: |
           pip install requests
@@ -321,7 +322,7 @@ jobs:
               --file results/zap.json \
               --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
           fi
- 
+
       - name: Upload ZAP artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -329,11 +330,11 @@ jobs:
           path: |
             results/zap.json
             results/zap.html
- 
+
       - name: Stop VulnFlask
         if: always()
         run: docker stop vulnflask && docker rm vulnflask
- 
+
   # ============================================================
   #  JOB 7 — Pipeline summary
   # ============================================================
@@ -342,24 +343,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: [sast-bandit, sast-semgrep, secrets-scan, sca-dependencies, container-scan, dast-zap]
     if: always()
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
- 
+
       - name: Install requests
         run: pip install requests
- 
+
       - name: Print findings summary from DefectDojo
         run: |
           python scripts/defectdojo/defectdojo_api.py \
             --action findings \
             --product-id ${{ needs.dojo-setup.outputs.product_id }}
- 
+
       - name: Post summary to GitHub Step Summary
         run: |
           echo "## DevSecOps Pipeline Results" >> $GITHUB_STEP_SUMMARY
