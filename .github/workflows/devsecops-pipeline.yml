@@ -267,7 +267,7 @@ jobs:
       - name: Run Trivy vulnerability scan
         run: |
           mkdir -p $GITHUB_WORKSPACE/results
-          trivy image --format json --output $GITHUB_WORKSPACE/results/trivy.json --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          trivy image --format json --output $GITHUB_WORKSPACE/results/trivy.json --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 vulnflask:latest ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           echo "Trivy scan complete"
           ls -lh $GITHUB_WORKSPACE/results/trivy.json
 
