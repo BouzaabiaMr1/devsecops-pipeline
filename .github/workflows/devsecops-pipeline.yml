@@ -257,6 +257,7 @@ jobs:
 
       - name: Build Docker image
         run: |
+          mkdir -p results
           docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} app/
 
       - name: Run Trivy vulnerability scan
@@ -357,9 +358,12 @@ jobs:
 
       - name: Print findings summary from DefectDojo
         run: |
-          python scripts/defectdojo/defectdojo_api.py \
-            --action findings \
-            --product-id ${{ needs.dojo-setup.outputs.product_id }}
+          PID="${{ needs.dojo-setup.outputs.product_id }}"
+          if [ -n "$PID" ]; then
+            python scripts/defectdojo/defectdojo_api.py --action findings --product-id "$PID"
+          else
+            echo "No product ID available, skipping findings summary"
+          fi
 
       - name: Post summary to GitHub Step Summary
         run: |
