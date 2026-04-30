@@ -27,7 +27,7 @@ env:
   DOJO_API_KEY: ${{ secrets.DOJO_API_KEY }}
   DOJO_PRODUCT: "VulnFlask"
   IMAGE_NAME:   "vulnflask"
-  IMAGE_TAG:    ${{ github.sha }}
+  IMAGE_TAG:    latest
 
 jobs:
   # ============================================================
