@@ -260,14 +260,16 @@ jobs:
           mkdir -p results
           docker build -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} app/
 
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: "${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-          format:    "json"
-          output:    "results/trivy.json"
-          severity:  "CRITICAL,HIGH,MEDIUM,LOW"
-          exit-code: "0"   # don't fail pipeline
+        run: |
+          mkdir -p results
+          trivy image             --format json             --output results/trivy.json             --severity CRITICAL,HIGH,MEDIUM,LOW             --exit-code 0             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          echo "Trivy scan complete"
+          ls -lh results/trivy.json
 
       - name: Install requests & import to DefectDojo
         run: |
