@@ -55,7 +55,12 @@ jobs:
           mkdir -p results
           bandit -r app/ -f json -o results/bandit.json --severity-level low --confidence-level low || true
       - name: Import to DefectDojo
-        run: python scripts/defectdojo/defectdojo_api.py --action import --scan-type bandit --file results/bandit.json --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
+        run: |
+          python scripts/defectdojo/defectdojo_api.py \
+            --action import \
+            --scan-type bandit \
+            --file results/bandit.json \
+            --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
       - uses: actions/upload-artifact@v4
         with:
           name: bandit-results
@@ -76,7 +81,12 @@ jobs:
           mkdir -p results
           semgrep scan --config=auto --json --output results/semgrep.json app/ || true
       - name: Import to DefectDojo
-        run: python scripts/defectdojo/defectdojo_api.py --action import --scan-type semgrep --file results/semgrep.json --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
+        run: |
+          python scripts/defectdojo/defectdojo_api.py \
+            --action import \
+            --scan-type semgrep \
+            --file results/semgrep.json \
+            --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
       - uses: actions/upload-artifact@v4
         with:
           name: semgrep-results
@@ -100,7 +110,11 @@ jobs:
         run: |
           pip install requests
           if [ -s results/trufflehog.json ]; then
-            python scripts/defectdojo/defectdojo_api.py --action import --scan-type trufflehog --file results/trufflehog.json --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
+            python scripts/defectdojo/defectdojo_api.py \
+              --action import \
+              --scan-type trufflehog \
+              --file results/trufflehog.json \
+              --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
           else
             echo "No secrets found - skipping import"
           fi
@@ -132,18 +146,30 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: |
-          mkdir -p $GITHUB_WORKSPACE/results
+          mkdir -p "$GITHUB_WORKSPACE/results"
           docker build -t vulnflask:latest app/
       - name: Install Trivy
-        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy --version
       - name: Run Trivy scan
         run: |
-          trivy image --format json --output $GITHUB_WORKSPACE/results/trivy.json --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 vulnflask:latest
-          ls -lh $GITHUB_WORKSPACE/results/trivy.json
+          trivy image \
+            --format json \
+            --output "$GITHUB_WORKSPACE/results/trivy.json" \
+            --severity CRITICAL,HIGH,MEDIUM,LOW \
+            --exit-code 0 \
+            --no-progress \
+            vulnflask:latest
+          ls -lh "$GITHUB_WORKSPACE/results/trivy.json"
       - name: Import to DefectDojo
         run: |
           pip install requests
-          python scripts/defectdojo/defectdojo_api.py --action import --scan-type trivy --file $GITHUB_WORKSPACE/results/trivy.json --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
+          python scripts/defectdojo/defectdojo_api.py \
+            --action import \
+            --scan-type trivy \
+            --file "$GITHUB_WORKSPACE/results/trivy.json" \
+            --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
       - uses: actions/upload-artifact@v4
         with:
           name: trivy-results
@@ -169,13 +195,17 @@ jobs:
           cmd_options: "-J zap.json"
       - name: Move ZAP results
         run: |
-          mkdir -p $GITHUB_WORKSPACE/results
-          mv zap.json $GITHUB_WORKSPACE/results/zap.json || true
+          mkdir -p "$GITHUB_WORKSPACE/results"
+          mv zap.json "$GITHUB_WORKSPACE/results/zap.json" || true
       - name: Import to DefectDojo
         run: |
           pip install requests
-          if [ -f $GITHUB_WORKSPACE/results/zap.json ]; then
-            python scripts/defectdojo/defectdojo_api.py --action import --scan-type zap --file $GITHUB_WORKSPACE/results/zap.json --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
+          if [ -f "$GITHUB_WORKSPACE/results/zap.json" ]; then
+            python scripts/defectdojo/defectdojo_api.py \
+              --action import \
+              --scan-type zap \
+              --file "$GITHUB_WORKSPACE/results/zap.json" \
+              --engagement-id ${{ needs.dojo-setup.outputs.engagement_id }}
           fi
       - name: Stop VulnFlask
         if: always()
@@ -202,12 +232,15 @@ jobs:
           fi
       - name: GitHub Step Summary
         run: |
-          echo "## DevSecOps Pipeline Results" >> $GITHUB_STEP_SUMMARY
-          echo "| Scan | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| SAST Bandit        | ${{ needs.sast-bandit.result }}      |" >> $GITHUB_STEP_SUMMARY
-          echo "| SAST Semgrep       | ${{ needs.sast-semgrep.result }}     |" >> $GITHUB_STEP_SUMMARY
-          echo "| Secrets TruffleHog | ${{ needs.secrets-scan.result }}     |" >> $GITHUB_STEP_SUMMARY
-          echo "| SCA pip-audit      | ${{ needs.sca-dependencies.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Container Trivy    | ${{ needs.container-scan.result }}   |" >> $GITHUB_STEP_SUMMARY
-          echo "| DAST ZAP           | ${{ needs.dast-zap.result }}         |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## DevSecOps Pipeline Results"
+            echo ""
+            echo "| Scan | Status |"
+            echo "|------|--------|"
+            echo "| SAST Bandit        | ${{ needs.sast-bandit.result }}      |"
+            echo "| SAST Semgrep       | ${{ needs.sast-semgrep.result }}     |"
+            echo "| Secrets TruffleHog | ${{ needs.secrets-scan.result }}     |"
+            echo "| SCA pip-audit      | ${{ needs.sca-dependencies.result }} |"
+            echo "| Container Trivy    | ${{ needs.container-scan.result }}   |"
+            echo "| DAST ZAP           | ${{ needs.dast-zap.result }}         |"
+          } >> $GITHUB_STEP_SUMMARY
